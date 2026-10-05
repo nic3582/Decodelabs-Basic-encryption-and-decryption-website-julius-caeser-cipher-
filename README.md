@@ -17,14 +17,8 @@ Result:  fkdqh wkh frxuvh wr qruwk
 Only the letters A to Z move. Case is kept; digits, spaces and punctuation stay as they are.
 
 Outer ring: the letter you type Inner ring: the letter you get
-
-```
-
-```
-
 Crack it: try every shift
 
 Only 25 keys exist, so any Caesar message can be read by trying them all. These rows decrypt your text above with each shift. Pick the one that reads as language.
 
-| Shift | Decrypted |
-| --- | --- |
+** author: NICHOLAS KIPTOO**
