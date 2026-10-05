@@ -1,0 +1,324 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Caesar Cipher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one working column. Controls and wheel side by side, result below, key-search table last. */
+:root {
+  --bg: #eceff3;
+  --surface: #f8f9fb;
+  --ink: #15202b;
+  --muted: #5a6877;
+  --line: #cdd5de;
+  --accent: #0e7c72;
+  --accent-ink: #ffffff;
+  --brass: #b4691a;
+  --focus: #0e7c72;
+  --danger: #b3261e;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  --font-body: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10171e; --surface: #18222c; --ink: #e6ecf2; --muted: #93a3b3; --line: #2b3a48;
+    --accent: #3fc2b3; --accent-ink: #08201d; --brass: #e2a35a; --focus: #3fc2b3; --danger: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f6dca; --surface: #18222c; --ink: #e6ecf2; --muted: #93a3b3; --line: #2b3a48;
+  --accent: #3fc2b3; --accent-ink: #08201d; --brass: #e2a35a; --focus: #3fc2b3; --danger: #ff8a80;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 400 15px/1.5 var(--font-body);
+  padding-inline: 16px; padding-block: 28px 56px;
+}
+.wrap { max-width: 960px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(30px, 6vw, 44px); line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 18px; font-weight: 700; }
+.lede { color: var(--muted); max-width: 62ch; margin: 8px 0 0; }
+.label { font: 500 11px/1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 20px; align-items: start; }
+@media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; align-self: flex-start; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 9px 18px; cursor: pointer; font-weight: 600; color: var(--muted); }
+.seg input:checked + label { background: var(--accent); color: var(--accent-ink); }
+.seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+textarea {
+  width: 100%; min-height: 120px; resize: vertical; padding: 12px;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+  font: 400 15px/1.5 var(--font-mono);
+}
+textarea:focus-visible, input[type="number"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.shift-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.shift-row input[type="range"] { flex: 1 1 160px; min-width: 0; accent-color: var(--accent); }
+input[type="number"] {
+  width: 64px; padding: 8px; text-align: center; font: 500 16px var(--font-mono);
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+}
+button {
+  font: 600 14px var(--font-body); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.step { width: 38px; padding-inline: 0; font-size: 18px; }
+
+.out {
+  min-height: 72px; padding: 12px; border-radius: 8px; background: var(--bg); border: 1px dashed var(--line);
+  font: 500 16px/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.note { color: var(--muted); font-size: 13px; }
+
+.wheel-wrap { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+svg.wheel { width: 100%; max-width: 340px; height: auto; display: block; }
+.wheel text { font-family: var(--font-mono); font-weight: 500; text-anchor: middle; dominant-baseline: central; }
+#ring-in text { fill: var(--ink); font-size: 15px; }
+#ring-out text { fill: var(--brass); font-size: 15px; }
+#ring-out { transform-box: view-box; transform-origin: 50% 50%; transition: transform 0.45s cubic-bezier(.3,.7,.2,1); }
+@media (prefers-reduced-motion: reduce) { #ring-out { transition: none; } }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+
+.strip { overflow-x: auto; max-width: 100%; }
+.strip pre { margin: 0; font: 500 13px/1.7 var(--font-mono); letter-spacing: 0.18em; }
+.strip .r1 { color: var(--ink); }
+.strip .r2 { color: var(--brass); }
+
+details.panel summary { cursor: pointer; font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+details.panel summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+.bf { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font: 400 13px/1.4 var(--font-mono); }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; }
+td:first-child { color: var(--brass); width: 1%; }
+tr.pick { cursor: pointer; }
+tr.pick:hover td { background: var(--bg); }
+tr.pick:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+tr.on td { background: var(--bg); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="label">Substitution cipher · 26 letters</div>
+    <h1>Caesar Cipher</h1>
+    <p class="lede">Slide every letter along the alphabet by a fixed shift. Julius Caesar used a shift of 3, so A became D. Type below and watch the wheel turn.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-label="Cipher controls">
+      <div class="seg" role="radiogroup" aria-label="Mode">
+        <input type="radio" name="mode" id="m-enc" value="enc" checked><label for="m-enc">Encrypt</label>
+        <input type="radio" name="mode" id="m-dec" value="dec"><label for="m-dec">Decrypt</label>
+      </div>
+
+      <div>
+        <label class="label" for="inp">Your text</label>
+        <textarea id="inp" spellcheck="false">Veni, vidi, vici. Attack at dawn!</textarea>
+      </div>
+
+      <div>
+        <label class="label" for="shift">Shift (key)</label>
+        <div class="shift-row">
+          <button class="step" id="minus" aria-label="Decrease shift">&minus;</button>
+          <input type="range" id="range" min="0" max="25" value="3" aria-label="Shift slider">
+          <button class="step" id="plus" aria-label="Increase shift">+</button>
+          <input type="number" id="shift" min="0" max="25" value="3">
+          <button id="rot13">ROT13</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="label">Result</div>
+        <div class="out" id="out" aria-live="polite"></div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="copy">Copy result</button>
+        <button id="swap">Use result as input</button>
+        <span class="note" id="status" role="status"></span>
+      </div>
+      <p class="note" style="margin:0">Only the letters A to Z move. Case is kept; digits, spaces and punctuation stay as they are.</p>
+    </section>
+
+    <section class="panel wheel-wrap" aria-label="Cipher wheel">
+      <svg class="wheel" viewBox="0 0 320 320" role="img" aria-label="Two alphabet rings. The inner ring is turned by the shift.">
+        <circle cx="160" cy="160" r="152" fill="none" stroke="var(--line)" />
+        <circle cx="160" cy="160" r="124" fill="none" stroke="var(--line)" />
+        <circle cx="160" cy="160" r="86" fill="none" stroke="var(--line)" />
+        <g id="ring-in"></g>
+        <g id="ring-out"></g>
+        <line x1="160" y1="4" x2="160" y2="28" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" />
+        <text x="160" y="160" id="hub" style="font-size:26px; fill:var(--accent)">+3</text>
+      </svg>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--ink)"></span>Outer ring: the letter you type</span>
+        <span><span class="dot" style="background:var(--brass)"></span>Inner ring: the letter you get</span>
+      </div>
+      <div class="strip" aria-label="Alphabet mapping">
+        <pre><span class="r1" id="row1"></span>
+<span class="r2" id="row2"></span></pre>
+      </div>
+    </section>
+  </div>
+
+  <details class="panel">
+    <summary>Crack it: try every shift</summary>
+    <p class="note" style="margin:0">Only 25 keys exist, so any Caesar message can be read by trying them all. These rows decrypt your text above with each shift. Pick the one that reads as language.</p>
+    <div class="bf">
+      <table>
+        <thead><tr><th>Shift</th><th>Decrypted</th></tr></thead>
+        <tbody id="bf"></tbody>
+      </table>
+    </div>
+  </details>
+</div>
+
+<script>
+(function () {
+  var A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var $ = function (id) { return document.getElementById(id); };
+  var inp = $("inp"), out = $("out"), range = $("range"), num = $("shift");
+  var ringIn = $("ring-in"), ringOut = $("ring-out");
+  var NS = "http://www.w3.org/2000/svg";
+  var curAngle = 0;
+
+  function caesar(text, shift) {
+    var s = ((shift % 26) + 26) % 26;
+    return text.replace(/[A-Za-z]/g, function (ch) {
+      var base = ch <= "Z" ? 65 : 97;
+      return String.fromCharCode(((ch.charCodeAt(0) - base + s) % 26) + base);
+    });
+  }
+
+  function buildRing(group, radius) {
+    for (var i = 0; i < 26; i++) {
+      var ang = i * 360 / 26;
+      var t = document.createElementNS(NS, "text");
+      t.setAttribute("x", 160);
+      t.setAttribute("y", 160 - radius);
+      t.setAttribute("transform", "rotate(" + ang + " 160 160)");
+      t.textContent = A[i];
+      group.appendChild(t);
+    }
+  }
+  buildRing(ringIn, 138);
+  buildRing(ringOut, 105);
+
+  function mode() { return $("m-enc").checked ? "enc" : "dec"; }
+  function shiftVal() {
+    var v = parseInt(num.value, 10);
+    if (isNaN(v)) v = 0;
+    return Math.max(0, Math.min(25, v));
+  }
+  function effective() { return mode() === "enc" ? shiftVal() : -shiftVal(); }
+
+  function render() {
+    var s = shiftVal(), eff = effective();
+    out.textContent = caesar(inp.value, eff);
+
+    // inner ring: encrypt turns it counter-clockwise by the shift, decrypt clockwise
+    var target = -eff * 360 / 26;
+    var delta = ((target - curAngle + 540) % 360) - 180;
+    curAngle += delta;
+    ringOut.style.transform = "rotate(" + curAngle + "deg)";
+    $("hub").textContent = (eff >= 0 ? "+" : "−") + Math.abs(eff);
+
+    var shifted = caesar(A, eff);
+    $("row1").textContent = A.split("").join(" ");
+    $("row2").textContent = shifted.split("").join(" ");
+
+    buildBrute();
+  }
+
+  function buildBrute() {
+    var body = $("bf");
+    var sample = inp.value.slice(0, 70);
+    var html = "";
+    for (var k = 0; k < 26; k++) {
+      var on = (mode() === "dec" && k === shiftVal()) ? " on" : "";
+      html += '<tr class="pick' + on + '" tabindex="0" data-k="' + k + '"><td>' + k + "</td><td></td></tr>";
+    }
+    body.innerHTML = html;
+    var rows = body.querySelectorAll("tr");
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].lastChild.textContent = caesar(sample, -i) + (inp.value.length > 70 ? "…" : "");
+    }
+  }
+
+  function setShift(v) {
+    v = ((v % 26) + 26) % 26;
+    range.value = v; num.value = v;
+    render();
+  }
+
+  range.addEventListener("input", function () { setShift(parseInt(range.value, 10)); });
+  num.addEventListener("input", function () {
+    range.value = shiftVal();
+    render();
+  });
+  num.addEventListener("change", function () { num.value = shiftVal(); });
+  $("plus").addEventListener("click", function () { setShift(shiftVal() + 1); });
+  $("minus").addEventListener("click", function () { setShift(shiftVal() - 1); });
+  $("rot13").addEventListener("click", function () { setShift(13); });
+  inp.addEventListener("input", render);
+  $("m-enc").addEventListener("change", render);
+  $("m-dec").addEventListener("change", render);
+
+  $("swap").addEventListener("click", function () {
+    inp.value = out.textContent;
+    $("m-enc").checked = !$("m-enc").checked;
+    $("m-dec").checked = !$("m-enc").checked;
+    render();
+  });
+
+  function say(msg) {
+    var st = $("status");
+    st.textContent = msg;
+    setTimeout(function () { st.textContent = ""; }, 1800);
+  }
+  $("copy").addEventListener("click", function () {
+    var text = out.textContent;
+    function fallback() {
+      var r = document.createRange();
+      r.selectNodeContents(out);
+      var sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(r);
+      say("Selected. Press Ctrl+C to copy.");
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { say("Copied"); }, fallback);
+    } else { fallback(); }
+  });
+
+  function pickRow(tr) {
+    if (!tr || !tr.dataset || tr.dataset.k === undefined) return;
+    $("m-dec").checked = true;
+    setShift(parseInt(tr.dataset.k, 10));
+  }
+  $("bf").addEventListener("click", function (e) { pickRow(e.target.closest("tr")); });
+  $("bf").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pickRow(e.target.closest("tr")); }
+  });
+
+  render();
+})();
+</script>
+<footer>
+  <p>&copy; 2026 Caesar Cipher. All rights reserved.     NICHOLAS KIPTOO</p>
+</footer>
+</body></html>
